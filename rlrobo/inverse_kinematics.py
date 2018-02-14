@@ -1,13 +1,7 @@
 
-import collections
-import matplotlib
-matplotlib.use('TkAgg')
-import matplotlib.pyplot as plt
 import numpy as np
 import sympy as sp 
 
-import dh
-import jacobian
 import utils
 
 def num_left_pseudoinv(m):
@@ -25,7 +19,7 @@ def singular_jacobian(J, vars, vals, tol=1e-4):
 
 def find_joint_config(
     J, 
-    J_inv,
+    J_inv_fn,
     qs,
     p_des, 
     q_cur, 
@@ -34,7 +28,7 @@ def find_joint_config(
     max_iter=50,
     threshold=1e-2,
     init_step_size=1.,
-    step_size_threshold=1e-8,
+    step_size_threshold=1e-4,
     epsilon=1e-2):
     '''
     Description:
@@ -46,6 +40,7 @@ def find_joint_config(
 
     Args:
         - J: jacobian of manipulator
+        - J_inv_fn: function returning the inverse jacobian
         - qs: symbolic variables for joints
         - p_des: desired end-effector position
         - q_cur: current joint configuration
@@ -71,7 +66,7 @@ def find_joint_config(
             q_subs = dict(zip(qs, q_cur))
 
             # compute inverse of jacobian
-            J_cur_inv = J_inv.evalf(subs=q_subs)
+            J_cur_inv = J_inv_fn(*np.array(q_cur[:nq]).astype(float))
 
             # compute delta q and the new end-effector position
             p_cur = p.evalf(subs=q_subs)
@@ -98,6 +93,9 @@ def find_joint_config(
         # if reached the destination, break
         if (p_cur - p_des).norm() < threshold:
             break
+        # if made no progress, break
+        elif step_size < step_size_threshold:
+            break
 
     # check that q_cur yields p_des within some threshold
     p_cur = T.evalf(subs=dict(zip(qs, q_cur)))[:-1,-1]
@@ -107,48 +105,3 @@ def find_joint_config(
     # otherwise, return the closest configuration we reached and a failure indicator
     else:
         return np.array(q_cur).astype(float), False
-
-if __name__ == '__main__':
-    # symbols used throughout equations
-    t1, t2, l1, l2 = sp.symbols('t1 t2 l1 l2')
-
-    # manipulator constants
-    subs = [
-        (l1, 1),
-        (l2, 1)
-    ]
-
-    # compute transformation matrix
-    params = dict()
-    params[1] = collections.defaultdict(int, dict(t=t1))
-    params[2] = collections.defaultdict(int, dict(l=l1, t=t2))
-    params[3] = collections.defaultdict(int, dict(l=l2))
-    T, transforms = dh.build_transforms(params)
-    # insert constants
-    T = T.subs(subs)
-    sp.pprint(T)
-
-    # compute jacobian
-    qs = [t1, t2]
-    J = jacobian.jacobian(transforms, qs)
-    # insert constants
-    J = J.subs(subs)
-    sp.pprint(J)
-
-    J_inv = sp.zeros(6,6)
-    J_inv[:len(qs),:] = utils.left_pseudoinv(J[:,:len(qs)])
-
-    # compute joint configuration required to achieve specific end-effector pos
-    qs = [t1, t2]
-    p_des = sp.Matrix([[-1, -1, 0, 0, 0, 0]]).T
-    q_cur = sp.Matrix([[0, 0, 0, 0, 0, 0]]).T
-    q_des, found = find_joint_config(J, J_inv, qs, p_des, q_cur, T)
-    print(q_des)
-
-    p_cur = T.evalf(subs=dict(zip(qs, q_des)))[:-1,-1]
-    p_cur = np.array(p_cur).astype(float)
-    p_des = np.array(p_des).astype(float)
-    print(p_cur)
-    plt.quiver(0, 0, p_des[0], p_des[1], scale=1)
-    plt.quiver(0, 0, p_cur[0], p_cur[1], scale=1)
-    plt.show()

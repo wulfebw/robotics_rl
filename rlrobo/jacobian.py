@@ -1,31 +1,7 @@
 
-import collections
 import sympy as sp 
 
-import dh
-
-def cumprod(ts):
-    '''
-    Description:
-        - computes the cumulative product of a list of matrices
-
-    Args:
-        - ts: list of matrices, all square, all the same shape
-    
-    '''
-    if len(ts) == 0:
-        return []
-    shape = ts[0].shape
-    assert len(shape) == 2
-    assert shape[0] == shape[1]
-    side = shape[0]
-
-    ret = []
-    cur = sp.eye(side)
-    for t in ts:
-        cur = sp.simplify(cur * t)
-        ret.append(cur)
-    return ret
+import utils
 
 def jacobian(transforms, qs):
     '''
@@ -66,7 +42,7 @@ def jacobian(transforms, qs):
         Jv[:,i] = sp.diff(p, q, simplify=True)
 
     # angular component of jacobian
-    i20_transforms = cumprod(transforms)
+    i20_transforms = utils.cumprod(transforms)
     Jw = sp.zeros(3, nq)
     for i, q in enumerate(qs):
         if q.name.startswith('t'):
@@ -77,19 +53,3 @@ def jacobian(transforms, qs):
     J[:3,:nq] = Jv
     J[3:,:nq] = Jw
     return J
-    
-if __name__ == '__main__':
-    # compute transformation matrix
-    t1, t2, l1, l2 = sp.symbols('t1 t2 l1 l2')
-    params = dict()
-    params[1] = collections.defaultdict(int, dict(t=t1))
-    params[2] = collections.defaultdict(int, dict(l=l1, t=t2))
-    params[3] = collections.defaultdict(int, dict(l=l2))
-    T, transforms = dh.build_transforms(params)
-    sp.pprint(T)
-
-    # compute jacobian
-    qs = [t1, t2]
-    J = jacobian(transforms, qs)
-    sp.pprint(J)
-    

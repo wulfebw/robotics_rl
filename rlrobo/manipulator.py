@@ -42,6 +42,7 @@ class Planner(object):
         # compute inverse of jacobian (this takes a while)
         self.J_inv = sp.zeros(6,6)
         self.J_inv[:self.nq,:] = utils.left_pseudoinv(self.J[:,:self.nq])
+        self.J_inv_fn = sp.lambdify(self.qs, self.J_inv)
 
     def find_joint_config(self, p_des, q_cur):
         '''
@@ -65,7 +66,7 @@ class Planner(object):
         q_cur = sp.Matrix(q_cur)
         q_des, valid = inverse_kinematics.find_joint_config(
             self.J,
-            self.J_inv,
+            self.J_inv_fn,
             self.qs,
             p_des,
             q_cur,
@@ -118,7 +119,6 @@ class Controller(object):
     This class enacts the actions of the planner through communication with 
     the servos on the manipulator
     '''
-
     def __init__(self, servos, address=0x40, debug=False):
         # Initialise the PWM device
         self.pwm = pwm.PWM(address)
@@ -145,7 +145,6 @@ class Manipulator(object):
     '''
     Represents the manipulator and coordinates the planner and controller
     '''
-
     def __init__(self, planner, controller):
         self.planner = planner
         self.controller = controller
@@ -164,13 +163,9 @@ class Manipulator(object):
         pos = self.planner.forward_kinematics(q)
         return pos
 
-def build_RR_manipulator():
+def build_RR_manipulator(l1=1, l2=1):
     # symbols used throughout equations
     t1, t2 = sp.symbols('t1 t2')
-
-    # manipulator constants
-    l1 = 1
-    l2 = 1
 
     # compute transformation matrix
     params = dict()
