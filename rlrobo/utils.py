@@ -47,9 +47,9 @@ def normalize_angles_0to2pi(angles):
     return angles
 
 def import_pwm():
-    if sys.platform == 'linux':
+    if sys.platform == 'linux2':
         # raspberry pi, import the adafruit pwm
-        pwm_module = importlib.import_module('')
+        pwm_module = importlib.import_module('Adafruit_PWM_Servo_Driver')
     else:
         # import the mock pwm
         pwm_module = importlib.import_module('rlrobo.mock_pwm')
